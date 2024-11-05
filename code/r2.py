@@ -60,7 +60,7 @@ class NavigationEnv:
         self.agent_radius = 12
         self.target_radius = 15
         self.speed = 4
-        
+
         # Add obstacles
         self.obstacles = [
             {'pos': [300, 400], 'radius': 50},
@@ -68,7 +68,7 @@ class NavigationEnv:
             {'pos': [500, 600], 'radius': 45},
             {'pos': [200, 200], 'radius': 35}
         ]
-        
+
         # Initialize Pygame with better graphics
         pygame.init()
         self.screen = pygame.display.set_mode((self.width, self.height))
@@ -86,7 +86,7 @@ class NavigationEnv:
     def step(self, action):
         # Actions: 0=up, 1=right, 2=down, 3=left, 4-7=diagonals
         old_pos = self.agent_pos.copy()
-        
+
         dx = 0
         dy = 0
         if action in [0, 4, 5]:  # Up movements
@@ -97,25 +97,25 @@ class NavigationEnv:
             dx += self.speed
         if action in [3, 4, 6]:  # Left movements
             dx -= self.speed
-            
+
         # Normalize diagonal speed
         if dx != 0 and dy != 0:
             dx *= 0.707  # 1/√2
             dy *= 0.707
-            
+
         self.agent_pos[0] += dx
         self.agent_pos[1] += dy
-            
+
         # Keep agent in bounds
         self.agent_pos[0] = max(0, min(self.width, self.agent_pos[0]))
         self.agent_pos[1] = max(0, min(self.height, self.agent_pos[1]))
-        
+
         # Calculate distance to target
         dist = math.sqrt((self.agent_pos[0] - self.target_pos[0])**2 + 
                        (self.agent_pos[1] - self.target_pos[1])**2)
         old_dist = math.sqrt((old_pos[0] - self.target_pos[0])**2 + 
                            (old_pos[1] - self.target_pos[1])**2)
-        
+
         # Check collision with obstacles
         if self._check_collision():
             self.agent_pos = old_pos

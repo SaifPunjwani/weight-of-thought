@@ -9,7 +9,7 @@ import random
 import seaborn as sns
 
 # Set style for prettier plots
-plt.style.use('seaborn')
+plt.style.use('seaborn-v0_8')  # Updated style name for newer matplotlib versions
 sns.set_palette("husl")
 
 class LanguageReasoner(nn.Module):
