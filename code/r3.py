@@ -407,6 +407,7 @@ def train():
             steps += 1
             env.render()
             
+            
             # Update visualization
             metrics = {
                 'success_rate': total_reward > 0,
