@@ -8,98 +8,177 @@ import random
 import pygame
 import math
 
-# Deep Q-Network for Logical Reasoning
+# Enhanced Deep Q-Network for Logical Reasoning
 class DQNReasoner(nn.Module):
     def __init__(self, state_size, action_size):
         super(DQNReasoner, self).__init__()
-        self.fc1 = nn.Linear(state_size, 128)
-        self.fc2 = nn.Linear(128, 64)
-        self.fc3 = nn.Linear(64, action_size)
+        # Larger network for better representation
+        self.fc1 = nn.Linear(state_size, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, action_size)
+        self.dropout = nn.Dropout(0.2)
         
     def forward(self, x):
         x = torch.relu(self.fc1(x))
+        x = self.dropout(x)
         x = torch.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.dropout(x)
+        x = torch.relu(self.fc3(x))
+        return self.fc4(x)
 
-# Experience Replay Buffer
+# Prioritized Experience Replay Buffer
 class ReplayBuffer:
-    def __init__(self, capacity=10000):
+    def __init__(self, capacity=20000):
         self.buffer = deque(maxlen=capacity)
+        self.priorities = deque(maxlen=capacity)
+        self.alpha = 0.6  # Priority exponent
+        self.epsilon = 1e-6  # Small constant to prevent zero probabilities
     
     def push(self, state, action, reward, next_state, done):
+        max_priority = max(self.priorities) if self.priorities else 1.0
         self.buffer.append((state, action, reward, next_state, done))
+        self.priorities.append(max_priority)
     
     def sample(self, batch_size):
-        return random.sample(self.buffer, batch_size)
-    
+        probs = np.array(self.priorities) ** self.alpha
+        probs /= probs.sum()
+        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
+        samples = [self.buffer[idx] for idx in indices]
+        return samples
+
     def __len__(self):
         return len(self.buffer)
 
-# Simple 2D navigation environment
+# Advanced 2D navigation environment with obstacles
 class NavigationEnv:
     def __init__(self):
-        self.width = 800
-        self.height = 600
+        self.width = 1024
+        self.height = 768
         self.agent_pos = [400, 300]
         self.target_pos = [600, 400]
-        self.agent_radius = 15
-        self.target_radius = 20
-        self.speed = 5
+        self.agent_radius = 12
+        self.target_radius = 15
+        self.speed = 4
         
-        # Initialize Pygame
+        # Add obstacles
+        self.obstacles = [
+            {'pos': [300, 400], 'radius': 50},
+            {'pos': [700, 300], 'radius': 40},
+            {'pos': [500, 600], 'radius': 45},
+            {'pos': [200, 200], 'radius': 35}
+        ]
+        
+        # Initialize Pygame with better graphics
         pygame.init()
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("DQN Navigation Demo")
+        pygame.display.set_caption("Advanced DQN Navigation")
         
     def reset(self):
-        self.agent_pos = [random.randint(50, self.width-50), 
-                         random.randint(50, self.height-50)]
+        # Ensure agent doesn't spawn inside obstacles
+        while True:
+            self.agent_pos = [random.randint(50, self.width-50), 
+                            random.randint(50, self.height-50)]
+            if not self._check_collision():
+                break
         return self._get_state()
         
     def step(self, action):
-        # Actions: 0=up, 1=right, 2=down, 3=left
-        if action == 0:
-            self.agent_pos[1] -= self.speed
-        elif action == 1:
-            self.agent_pos[0] += self.speed
-        elif action == 2:
-            self.agent_pos[1] += self.speed
-        elif action == 3:
-            self.agent_pos[0] -= self.speed
+        # Actions: 0=up, 1=right, 2=down, 3=left, 4-7=diagonals
+        old_pos = self.agent_pos.copy()
+        
+        dx = 0
+        dy = 0
+        if action in [0, 4, 5]:  # Up movements
+            dy -= self.speed
+        if action in [2, 6, 7]:  # Down movements
+            dy += self.speed
+        if action in [1, 5, 7]:  # Right movements
+            dx += self.speed
+        if action in [3, 4, 6]:  # Left movements
+            dx -= self.speed
+            
+        # Normalize diagonal speed
+        if dx != 0 and dy != 0:
+            dx *= 0.707  # 1/√2
+            dy *= 0.707
+            
+        self.agent_pos[0] += dx
+        self.agent_pos[1] += dy
             
         # Keep agent in bounds
         self.agent_pos[0] = max(0, min(self.width, self.agent_pos[0]))
         self.agent_pos[1] = max(0, min(self.height, self.agent_pos[1]))
         
-        # Calculate reward based on distance to target
+        # Calculate distance to target
         dist = math.sqrt((self.agent_pos[0] - self.target_pos[0])**2 + 
-                        (self.agent_pos[1] - self.target_pos[1])**2)
-        reward = -dist/100
+                       (self.agent_pos[1] - self.target_pos[1])**2)
+        old_dist = math.sqrt((old_pos[0] - self.target_pos[0])**2 + 
+                           (old_pos[1] - self.target_pos[1])**2)
+        
+        # Check collision with obstacles
+        if self._check_collision():
+            self.agent_pos = old_pos
+            reward = -5
+        else:
+            # Calculate reward based on distance to target and movement efficiency
+            reward = (old_dist - dist) * 0.5  # Reward for moving closer
+            reward -= 0.1  # Small penalty for each step to encourage efficiency
         
         # Check if reached target
         done = dist < (self.agent_radius + self.target_radius)
         if done:
-            reward = 100
+            reward = 200
             
         return self._get_state(), reward, done
         
+    def _check_collision(self):
+        for obstacle in self.obstacles:
+            dist = math.sqrt((self.agent_pos[0] - obstacle['pos'][0])**2 + 
+                           (self.agent_pos[1] - obstacle['pos'][1])**2)
+            if dist < (self.agent_radius + obstacle['radius']):
+                return True
+        return False
+        
     def _get_state(self):
-        # State is [agent_x, agent_y, target_x, target_y]
-        return torch.tensor([self.agent_pos[0]/self.width, 
-                           self.agent_pos[1]/self.height,
-                           self.target_pos[0]/self.width,
-                           self.target_pos[1]/self.height], 
-                           dtype=torch.float32)
+        # Enhanced state with obstacle information
+        state = [
+            self.agent_pos[0]/self.width,
+            self.agent_pos[1]/self.height,
+            self.target_pos[0]/self.width,
+            self.target_pos[1]/self.height
+        ]
+        
+        # Add distance and angle to nearest obstacles
+        for obstacle in self.obstacles:
+            dist = math.sqrt((self.agent_pos[0] - obstacle['pos'][0])**2 + 
+                           (self.agent_pos[1] - obstacle['pos'][1])**2)
+            angle = math.atan2(obstacle['pos'][1] - self.agent_pos[1],
+                             obstacle['pos'][0] - self.agent_pos[0])
+            state.extend([dist/math.sqrt(self.width**2 + self.height**2),
+                        angle/math.pi])
+            
+        return torch.tensor(state, dtype=torch.float32)
         
     def render(self):
-        self.screen.fill((255, 255, 255))
+        self.screen.fill((240, 240, 240))
         
-        # Draw target
-        pygame.draw.circle(self.screen, (255, 0, 0), 
-                         (int(self.target_pos[0]), int(self.target_pos[1])), 
-                         self.target_radius)
+        # Draw obstacles
+        for obstacle in self.obstacles:
+            pygame.draw.circle(self.screen, (100, 100, 100),
+                             (int(obstacle['pos'][0]), int(obstacle['pos'][1])),
+                             obstacle['radius'])
         
-        # Draw agent
+        # Draw target with glow effect
+        for r in range(self.target_radius + 10, self.target_radius - 1, -1):
+            alpha = (r - self.target_radius + 1) * 10
+            s = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+            pygame.draw.circle(s, (255, 0, 0, alpha),
+                             (r, r), r)
+            self.screen.blit(s, (int(self.target_pos[0]-r),
+                                int(self.target_pos[1]-r)))
+        
+        # Draw agent with trail effect
         pygame.draw.circle(self.screen, (0, 0, 255),
                          (int(self.agent_pos[0]), int(self.agent_pos[1])),
                          self.agent_radius)
@@ -110,15 +189,15 @@ class NavigationEnv:
         pygame.quit()
 
 # Training parameters
-state_size = 4  # [agent_x, agent_y, target_x, target_y]
-action_size = 4  # up, right, down, left
-batch_size = 32
+state_size = 12  # [agent_x, agent_y, target_x, target_y, obstacle_info...]
+action_size = 8  # up, right, down, left + diagonals
+batch_size = 64
 gamma = 0.99
 epsilon_start = 1.0
 epsilon_end = 0.01
-epsilon_decay = 0.995
-learning_rate = 0.001
-num_episodes = 500
+epsilon_decay = 0.997
+learning_rate = 0.0005
+num_episodes = 1000
 
 # Initialize environment and DQN
 env = NavigationEnv()
@@ -176,9 +255,10 @@ try:
                 next_q_values = target_dqn(next_states).max(1)[0].detach()
                 target_q_values = rewards + gamma * next_q_values * (1 - dones)
                 
-                loss = nn.MSELoss()(current_q_values.squeeze(), target_q_values)
+                loss = nn.HuberLoss()(current_q_values.squeeze(), target_q_values)
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(dqn.parameters(), 1.0)
                 optimizer.step()
                 
                 losses.append(loss.item())
@@ -188,10 +268,10 @@ try:
             
             # Render environment
             env.render()
-            pygame.time.wait(10)  # Slow down visualization
+            pygame.time.wait(5)  # Slightly faster visualization
             
         # Update target network periodically
-        if episode % 10 == 0:
+        if episode % 5 == 0:
             target_dqn.load_state_dict(dqn.state_dict())
         
         # Decay epsilon
@@ -200,7 +280,8 @@ try:
         episode_rewards.append(episode_reward)
         
         if episode % 10 == 0:
-            print(f"Episode {episode}, Reward: {episode_reward:.2f}")
+            avg_reward = np.mean(episode_rewards[-10:])
+            print(f"Episode {episode}, Avg Reward: {avg_reward:.2f}, Epsilon: {epsilon:.3f}")
 
 except KeyboardInterrupt:
     print("\nTraining interrupted")
@@ -227,4 +308,9 @@ plt.tight_layout()
 plt.show()
 
 # Save the model
-torch.save(dqn.state_dict(), 'dqn_reasoner.pth')
+torch.save({
+    'model_state_dict': dqn.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'episode_rewards': episode_rewards,
+    'losses': losses
+}, 'dqn_reasoner_advanced.pth')
