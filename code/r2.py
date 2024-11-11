@@ -50,7 +50,7 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-# Advanced 2D navigation environment with obstacles
+# Advanced 2D navigation environment with moving obstacles
 class NavigationEnv:
     def __init__(self):
         self.width = 1024
@@ -60,13 +60,17 @@ class NavigationEnv:
         self.agent_radius = 12
         self.target_radius = 15
         self.speed = 4
+        
+        # Target movement parameters
+        self.target_speed = 2
+        self.target_angle = random.random() * 2 * math.pi
 
-        # Add obstacles
+        # Add obstacles with movement parameters
         self.obstacles = [
-            {'pos': [300, 400], 'radius': 50},
-            {'pos': [700, 300], 'radius': 40},
-            {'pos': [500, 600], 'radius': 45},
-            {'pos': [200, 200], 'radius': 35}
+            {'pos': [300, 400], 'radius': 50, 'angle': random.random() * 2 * math.pi, 'speed': 1.5},
+            {'pos': [700, 300], 'radius': 40, 'angle': random.random() * 2 * math.pi, 'speed': 1.2},
+            {'pos': [500, 600], 'radius': 45, 'angle': random.random() * 2 * math.pi, 'speed': 1.8},
+            {'pos': [200, 200], 'radius': 35, 'angle': random.random() * 2 * math.pi, 'speed': 1.3}
         ]
 
         # Initialize Pygame with better graphics
@@ -81,9 +85,70 @@ class NavigationEnv:
                             random.randint(50, self.height-50)]
             if not self._check_collision():
                 break
+                
+        # Reset target position and movement
+        self.target_pos = [random.randint(50, self.width-50),
+                          random.randint(50, self.height-50)]
+        self.target_angle = random.random() * 2 * math.pi
+        
+        # Reset obstacle positions and angles
+        for obstacle in self.obstacles:
+            obstacle['pos'] = [random.randint(50, self.width-50),
+                             random.randint(50, self.height-50)]
+            obstacle['angle'] = random.random() * 2 * math.pi
+        
         return self._get_state()
         
     def step(self, action):
+        # Store old target position
+        old_target_pos = self.target_pos.copy()
+        
+        # Move target
+        self.target_pos[0] += math.cos(self.target_angle) * self.target_speed
+        self.target_pos[1] += math.sin(self.target_angle) * self.target_speed
+        
+        # Bounce target off walls
+        if self.target_pos[0] < self.target_radius or self.target_pos[0] > self.width - self.target_radius:
+            self.target_angle = math.pi - self.target_angle
+        if self.target_pos[1] < self.target_radius or self.target_pos[1] > self.height - self.target_radius:
+            self.target_angle = -self.target_angle
+            
+        # Check target collision with obstacles and bounce
+        for obstacle in self.obstacles:
+            dist = math.sqrt((self.target_pos[0] - obstacle['pos'][0])**2 + 
+                           (self.target_pos[1] - obstacle['pos'][1])**2)
+            if dist < (self.target_radius + obstacle['radius']):
+                # Calculate bounce angle
+                dx = self.target_pos[0] - obstacle['pos'][0]
+                dy = self.target_pos[1] - obstacle['pos'][1]
+                bounce_angle = math.atan2(dy, dx)
+                
+                # Move target back and apply bounce
+                self.target_pos = old_target_pos
+                self.target_angle = bounce_angle
+                self.target_pos[0] += math.cos(self.target_angle) * self.target_speed
+                self.target_pos[1] += math.sin(self.target_angle) * self.target_speed
+            
+        # Move obstacles and handle their collisions
+        for obstacle in self.obstacles:
+            # Move obstacle
+            obstacle['pos'][0] += math.cos(obstacle['angle']) * obstacle['speed']
+            obstacle['pos'][1] += math.sin(obstacle['angle']) * obstacle['speed']
+            
+            # Bounce off walls
+            if obstacle['pos'][0] < obstacle['radius'] or obstacle['pos'][0] > self.width - obstacle['radius']:
+                obstacle['angle'] = math.pi - obstacle['angle']
+            if obstacle['pos'][1] < obstacle['radius'] or obstacle['pos'][1] > self.height - obstacle['radius']:
+                obstacle['angle'] = -obstacle['angle']
+                
+            # Keep in bounds
+            obstacle['pos'][0] = max(obstacle['radius'], min(self.width - obstacle['radius'], obstacle['pos'][0]))
+            obstacle['pos'][1] = max(obstacle['radius'], min(self.height - obstacle['radius'], obstacle['pos'][1]))
+            
+        # Keep target in bounds
+        self.target_pos[0] = max(self.target_radius, min(self.width - self.target_radius, self.target_pos[0]))
+        self.target_pos[1] = max(self.target_radius, min(self.height - self.target_radius, self.target_pos[1]))
+        
         # Actions: 0=up, 1=right, 2=down, 3=left, 4-7=diagonals
         old_pos = self.agent_pos.copy()
 
@@ -116,10 +181,21 @@ class NavigationEnv:
         old_dist = math.sqrt((old_pos[0] - self.target_pos[0])**2 + 
                            (old_pos[1] - self.target_pos[1])**2)
 
-        # Check collision with obstacles
-        if self._check_collision():
+        # Check collision with obstacles and bounce
+        collision = self._check_collision()
+        if collision:
+            # Calculate bounce angle
+            obstacle = collision
+            dx = self.agent_pos[0] - obstacle['pos'][0]
+            dy = self.agent_pos[1] - obstacle['pos'][1]
+            bounce_angle = math.atan2(dy, dx)
+            
+            # Move agent back and apply bounce
             self.agent_pos = old_pos
-            reward = -5
+            self.agent_pos[0] += math.cos(bounce_angle) * self.speed
+            self.agent_pos[1] += math.sin(bounce_angle) * self.speed
+            
+            reward = -2  # Smaller penalty for bouncing
         else:
             # Calculate reward based on distance to target and movement efficiency
             reward = (old_dist - dist) * 0.5  # Reward for moving closer
@@ -137,8 +213,8 @@ class NavigationEnv:
             dist = math.sqrt((self.agent_pos[0] - obstacle['pos'][0])**2 + 
                            (self.agent_pos[1] - obstacle['pos'][1])**2)
             if dist < (self.agent_radius + obstacle['radius']):
-                return True
-        return False
+                return obstacle
+        return None
         
     def _get_state(self):
         # Enhanced state with obstacle information
@@ -149,14 +225,18 @@ class NavigationEnv:
             self.target_pos[1]/self.height
         ]
         
-        # Add distance and angle to nearest obstacles
+        # Add distance, angle, and velocity information for obstacles
         for obstacle in self.obstacles:
             dist = math.sqrt((self.agent_pos[0] - obstacle['pos'][0])**2 + 
                            (self.agent_pos[1] - obstacle['pos'][1])**2)
             angle = math.atan2(obstacle['pos'][1] - self.agent_pos[1],
                              obstacle['pos'][0] - self.agent_pos[0])
-            state.extend([dist/math.sqrt(self.width**2 + self.height**2),
-                        angle/math.pi])
+            state.extend([
+                dist/math.sqrt(self.width**2 + self.height**2),
+                angle/math.pi,
+                math.cos(obstacle['angle']) * obstacle['speed']/self.speed,
+                math.sin(obstacle['angle']) * obstacle['speed']/self.speed
+            ])
             
         return torch.tensor(state, dtype=torch.float32)
         
@@ -189,7 +269,7 @@ class NavigationEnv:
         pygame.quit()
 
 # Training parameters
-state_size = 12  # [agent_x, agent_y, target_x, target_y, obstacle_info...]
+state_size = 20  # [agent_x, agent_y, target_x, target_y, obstacle_info...]
 action_size = 8  # up, right, down, left + diagonals
 batch_size = 64
 gamma = 0.99

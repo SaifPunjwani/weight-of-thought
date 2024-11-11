@@ -406,6 +406,7 @@ def train():
             state = next_state
             steps += 1
             env.render()
+
             
             
             # Update visualization
