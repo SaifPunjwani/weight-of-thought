@@ -8,44 +8,159 @@ import random
 import pygame
 import math
 
-# Enhanced Deep Q-Network for Logical Reasoning
+# Advanced Transformer-based Reasoning Network with Chain-of-Thought
 class DQNReasoner(nn.Module):
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, num_heads=4, num_layers=3):
         super(DQNReasoner, self).__init__()
-        # Larger network for better representation
-        self.fc1 = nn.Linear(state_size, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, 64)
-        self.fc4 = nn.Linear(64, action_size)
-        self.dropout = nn.Dropout(0.2)
         
+        # Dimensions
+        self.d_model = 256
+        self.state_size = state_size
+        self.action_size = action_size
+        
+        # Input embedding with positional encoding
+        self.input_embedding = nn.Sequential(
+            nn.Linear(state_size, self.d_model),
+            nn.LayerNorm(self.d_model),
+            nn.ReLU()
+        )
+        
+        # Positional encoding
+        self.pos_encoder = nn.Parameter(torch.zeros(1, 1, self.d_model))
+        
+        # Multi-head self-attention layers
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=self.d_model,
+            nhead=num_heads,
+            dim_feedforward=512,
+            dropout=0.1,
+            activation='gelu',
+            batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        
+        # Chain-of-thought reasoning modules
+        self.reasoning_layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(self.d_model, self.d_model),
+                nn.LayerNorm(self.d_model),
+                nn.GELU(),
+                nn.Dropout(0.1)
+            ) for _ in range(3)
+        ])
+        
+        # Dual stream architecture
+        self.value_stream = nn.Sequential(
+            nn.Linear(self.d_model, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
+        )
+        
+        self.advantage_stream = nn.Sequential(
+            nn.Linear(self.d_model, 128),
+            nn.ReLU(),
+            nn.Linear(128, action_size)
+        )
+        
+        # Auxiliary prediction heads for better representation learning
+        self.next_state_predictor = nn.Sequential(
+            nn.Linear(self.d_model, 128),
+            nn.ReLU(),
+            nn.Linear(128, state_size)
+        )
+        
+        self.inverse_dynamics = nn.Sequential(
+            nn.Linear(self.d_model * 2, 128),
+            nn.ReLU(),
+            nn.Linear(128, action_size)
+        )
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = self.dropout(x)
-        x = torch.relu(self.fc2(x))
-        x = self.dropout(x)
-        x = torch.relu(self.fc3(x))
-        return self.fc4(x)
+        batch_size = x.size(0)
+        
+        # Input embedding with positional encoding
+        x = self.input_embedding(x)
+        x = x + self.pos_encoder
+        
+        # Multi-head self-attention
+        x = self.transformer(x)
+        
+        # Chain-of-thought reasoning
+        reasoning_outputs = []
+        reasoning_state = x
+        for layer in self.reasoning_layers:
+            reasoning_state = layer(reasoning_state) + reasoning_state
+            reasoning_outputs.append(reasoning_state)
+        
+        # Stack reasoning outputs and calculate attention
+        stacked_outputs = torch.stack(reasoning_outputs)  # [num_layers, batch_size, seq_len, d_model]
+        
+        # Calculate attention weights across layers
+        # Mean across the feature dimension to get [num_layers, batch_size, seq_len]
+        attention_logits = stacked_outputs.mean(dim=-1)
+        attention_weights = torch.softmax(attention_logits, dim=0)
+        
+        # Apply attention weights
+        x = (stacked_outputs * attention_weights.unsqueeze(-1)).sum(0)
+        
+        # Dueling network architecture
+        value = self.value_stream(x)
+        advantage = self.advantage_stream(x)
+        
+        # Combine value and advantage
+        q_values = value + (advantage - advantage.mean(dim=1, keepdim=True))
+        
+        # Auxiliary predictions for representation learning
+        next_state_pred = self.next_state_predictor(x)
+        
+        if self.training:
+            return q_values, next_state_pred
+        return q_values
 
-# Prioritized Experience Replay Buffer
+# Prioritized Experience Replay Buffer with Hindsight Experience Replay
 class ReplayBuffer:
     def __init__(self, capacity=20000):
         self.buffer = deque(maxlen=capacity)
         self.priorities = deque(maxlen=capacity)
         self.alpha = 0.6  # Priority exponent
+        self.beta = 0.4  # Importance sampling exponent
+        self.beta_increment = 0.001
         self.epsilon = 1e-6  # Small constant to prevent zero probabilities
     
     def push(self, state, action, reward, next_state, done):
         max_priority = max(self.priorities) if self.priorities else 1.0
         self.buffer.append((state, action, reward, next_state, done))
         self.priorities.append(max_priority)
+        
+        # Hindsight Experience Replay - store alternative goals
+        if not done:
+            self.buffer.append((state, action, 1.0, next_state, True))
+            self.priorities.append(max_priority)
     
     def sample(self, batch_size):
+        self.beta = min(1.0, self.beta + self.beta_increment)
+        
         probs = np.array(self.priorities) ** self.alpha
         probs /= probs.sum()
+        
         indices = np.random.choice(len(self.buffer), batch_size, p=probs)
         samples = [self.buffer[idx] for idx in indices]
-        return samples
+        
+        # Importance sampling weights
+        weights = (len(self.buffer) * probs[indices]) ** (-self.beta)
+        weights /= weights.max()
+        
+        # Convert samples to tensors
+        states = torch.stack([s for s, _, _, _, _ in samples])
+        actions = torch.tensor([a for _, a, _, _, _ in samples])
+        rewards = torch.tensor([r for _, _, r, _, _ in samples])
+        next_states = torch.stack([ns for _, _, _, ns, _ in samples])
+        dones = torch.tensor([d for _, _, _, _, d in samples])
+            
+        return (states, actions, rewards, next_states, dones), indices, weights
+
+    def update_priorities(self, indices, td_errors):
+        for idx, td_error in zip(indices, td_errors):
+            self.priorities[idx] = abs(td_error) + self.epsilon
 
     def __len__(self):
         return len(self.buffer)
@@ -322,26 +437,26 @@ try:
             
             # Training step
             if len(replay_buffer) >= batch_size:
-                batch = replay_buffer.sample(batch_size)
-                states, actions, rewards, next_states, dones = zip(*batch)
-                
-                states = torch.stack([s for s in states]).to(device)
-                actions = torch.tensor(actions).to(device)
-                rewards = torch.tensor(rewards).to(device)
-                next_states = torch.stack([s for s in next_states]).to(device)
-                dones = torch.tensor(dones, dtype=torch.float32).to(device)
-                
+                (states, actions, rewards, next_states, dones), indices, weights = replay_buffer.sample(batch_size)
+
+                states = states.to(device)
+                actions = actions.to(device)
+                rewards = rewards.to(device)
+                next_states = next_states.to(device)
+                dones = dones.to(device, dtype=torch.float32)
+
                 current_q_values = dqn(states).gather(1, actions.unsqueeze(1))
                 next_q_values = target_dqn(next_states).max(1)[0].detach()
                 target_q_values = rewards + gamma * next_q_values * (1 - dones)
-                
+
                 loss = nn.HuberLoss()(current_q_values.squeeze(), target_q_values)
                 optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(dqn.parameters(), 1.0)
                 optimizer.step()
-                
+
                 losses.append(loss.item())
+
             
             state = next_state
             episode_reward += reward
