@@ -109,11 +109,12 @@ class DQNReasoner(nn.Module):
         # Combine value and advantage
         q_values = value + (advantage - advantage.mean(dim=1, keepdim=True))
         
-        # Auxiliary predictions for representation learning
-        next_state_pred = self.next_state_predictor(x)
-        
+        # During training, return both q_values and next_state_pred
         if self.training:
+            next_state_pred = self.next_state_predictor(x)
             return q_values, next_state_pred
+        
+        # During evaluation, return just q_values
         return q_values
 
 # Prioritized Experience Replay Buffer with Hindsight Experience Replay
@@ -444,7 +445,7 @@ try:
                 rewards = rewards.to(device)
                 next_states = next_states.to(device)
                 dones = dones.to(device, dtype=torch.float32)
-
+                print(dqn(states))
                 current_q_values = dqn(states).gather(1, actions.unsqueeze(1))
                 next_q_values = target_dqn(next_states).max(1)[0].detach()
                 target_q_values = rewards + gamma * next_q_values * (1 - dones)
