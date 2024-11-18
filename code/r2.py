@@ -109,6 +109,7 @@ class DQNReasoner(nn.Module):
         # Combine value and advantage
         q_values = value + (advantage - advantage.mean(dim=1, keepdim=True))
         
+        
         # During training, return both q_values and next_state_pred
         if self.training:
             next_state_pred = self.next_state_predictor(x)
