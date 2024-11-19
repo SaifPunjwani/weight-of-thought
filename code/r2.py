@@ -108,7 +108,7 @@ class DQNReasoner(nn.Module):
         
         # Combine value and advantage
         q_values = value + (advantage - advantage.mean(dim=1, keepdim=True))
-        
+
         
         # During training, return both q_values and next_state_pred
         if self.training:
@@ -438,27 +438,33 @@ try:
             replay_buffer.push(state, action, reward, next_state, done)
             
             # Training step
+            # In your training loop
             if len(replay_buffer) >= batch_size:
                 (states, actions, rewards, next_states, dones), indices, weights = replay_buffer.sample(batch_size)
-
+                
                 states = states.to(device)
                 actions = actions.to(device)
                 rewards = rewards.to(device)
                 next_states = next_states.to(device)
                 dones = dones.to(device, dtype=torch.float32)
-                print(dqn(states))
-                current_q_values = dqn(states).gather(1, actions.unsqueeze(1))
-                next_q_values = target_dqn(next_states).max(1)[0].detach()
+                
+                # Get Q-values (shape is [1, 64, 8] according to print output)
+                q_values = dqn(states)
+                
+                # Reshape q_values to [batch_size, action_size]
+                print(q_values)
+                q_values = q_values.squeeze()  # Remove the first dimension, now shape is [64, 8]
+                
+                # Now gather will work correctly
+                current_q_values = q_values.gather(1, actions.unsqueeze(1))
+                
+                # Get next Q-values
+                next_q_values = target_dqn(next_states)
+                next_q_values = next_q_values.squeeze(0)  # Remove first dimension
+                next_q_values = next_q_values.max(1)[0].detach()
+                
+                # Compute target Q-values
                 target_q_values = rewards + gamma * next_q_values * (1 - dones)
-
-                loss = nn.HuberLoss()(current_q_values.squeeze(), target_q_values)
-                optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(dqn.parameters(), 1.0)
-                optimizer.step()
-
-                losses.append(loss.item())
-
             
             state = next_state
             episode_reward += reward
