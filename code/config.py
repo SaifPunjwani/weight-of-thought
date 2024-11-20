@@ -1,5 +1,0 @@
-import os
-
-# OpenAI API configuration
-OPENAI_API_KEY = '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'
-
