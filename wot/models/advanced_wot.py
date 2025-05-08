@@ -34,7 +34,7 @@ os.makedirs('results/advanced/attention_maps', exist_ok=True)
 os.makedirs('results/advanced/node_analysis', exist_ok=True)
 os.makedirs('results/advanced/task_performance', exist_ok=True)
 
-class AdvancedWebOfThoughts(nn.Module):
+class AdvancedWeightOfThoughts(nn.Module):
     """
     Enhanced Weight-of-Thought reasoning model with advanced architecture features
     """
@@ -42,7 +42,7 @@ class AdvancedWebOfThoughts(nn.Module):
                  attention_heads=4, dropout=0.1, layer_norm=True, skip_connections=True,
                  activation='gelu', node_specialization=True, edge_importance=True,
                  task_embedding_dim=32):
-        super(AdvancedWebOfThoughts, self).__init__()
+        super(AdvancedWeightOfThoughts, self).__init__()
         
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -400,8 +400,8 @@ class AdvancedWOTReasoner:
         # Initialize language encoder
         self.encoder = LanguageEncoder().to(self.device)
         
-        # Initialize Web of Thoughts model with advanced features
-        self.wot_model = AdvancedWebOfThoughts(
+        # Initialize Weight of Thoughts model with advanced features
+        self.wot_model = AdvancedWeightOfThoughts(
             input_dim=self.encoder.output_dim,
             hidden_dim=hidden_dim,
             num_nodes=num_nodes,
@@ -944,7 +944,7 @@ class AdvancedWOTReasoner:
         edge_labels = {(u, v): f"{G[u][v]['weight']:.2f}" for u, v in G.edges()}
         nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, ax=ax4)
         
-        ax4.set_title('Web of Thoughts Reasoning Network')
+        ax4.set_title('Weight of Thoughts Reasoning Network')
         ax4.axis('off')
         
         # Plot reasoning step outputs
@@ -1133,7 +1133,7 @@ class AdvancedWOTReasoner:
             edge_labels = {(u, v): f"{G[u][v]['weight']:.2f}" for u, v in G.edges()}
             nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=10)
             
-            plt.title(f"Web of Thoughts Reasoning Network (Epoch {epoch+1})")
+            plt.title(f"Weight of Thoughts Reasoning Network (Epoch {epoch+1})")
             plt.axis('off')
             plt.savefig(f"results/advanced/attention_maps/reasoning_graph_epoch_{epoch+1}.png", dpi=200, bbox_inches='tight')
             plt.close()

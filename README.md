@@ -9,11 +9,11 @@
   <img src="results/paper_figures/reasoning_pipeline.png" alt="Weight-of-Thought Reasoning Pipeline" width="700"/>
 </p>
 
-Weight-of-Thought (WoT) is a novel neural reasoning approach that extends beyond traditional Chain-of-Thought (CoT) by representing reasoning as an interconnected web rather than a linear sequence. This repository implements the WoT architecture as described in our [paper](https://arxiv.org/abs/2504.10646), with complete code for training, evaluation, and visualization.
+Weight-of-Thought (WoT) is a novel neural reasoning approach that extends beyond traditional Chain-of-Thought (CoT) by representing reasoning as an interconnected graph rather than a linear sequence. This repository implements the WoT architecture as described in our [paper](https://arxiv.org/abs/2504.10646), with complete code for training, evaluation, and visualization.
 
 ## 🔍 Key Features
 
-- **Graph-based reasoning structure**: Information flows through an interconnected web of specialized nodes
+- **Graph-based reasoning structure**: Information flows through an interconnected graph of specialized nodes
 - **Multi-round message passing**: Nodes exchange information through multiple rounds, creating rich reasoning contexts
 - **Attention-weighted connections**: Dynamic weighting of connections between reasoning nodes
 - **Task-specific reasoning**: The network adapts its reasoning strategy based on the task type
@@ -178,10 +178,10 @@ reasoner.train(dataloader, dataloader, num_epochs=10)
 You can extend the WoT architecture by subclassing the base model:
 
 ```python
-from wot.models import WebOfThoughts
+from wot.models import WeightOfThoughts
 import torch.nn as nn
 
-class CustomWOT(WebOfThoughts):
+class CustomWOT(WeightOfThoughts):
     def __init__(self, input_dim, hidden_dim=256, num_nodes=8, num_reasoning_steps=4):
         super(CustomWOT, self).__init__(input_dim, hidden_dim, num_nodes, num_reasoning_steps)
         # Add custom components here

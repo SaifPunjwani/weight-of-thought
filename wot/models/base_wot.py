@@ -28,9 +28,9 @@ os.makedirs('results', exist_ok=True)
 os.makedirs('results/plots', exist_ok=True)
 os.makedirs('results/models', exist_ok=True)
 
-class WebOfThoughts(nn.Module):
+class WeightOfThoughts(nn.Module):
     def __init__(self, input_dim, hidden_dim=256, num_nodes=8, num_reasoning_steps=4, dropout=0.1):
-        super(WebOfThoughts, self).__init__()
+        super(WeightOfThoughts, self).__init__()
         
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -177,7 +177,7 @@ class WebOfThoughts(nn.Module):
         for i in range(self.num_nodes):
             node_features[i] = self.node_transform[i](node_features[i])
         
-        # Enhanced message passing between nodes (creating the web)
+        # Enhanced message passing between nodes (creating the Graph)
         edge_matrices = []
         
         # Increase number of message passing rounds for better propagation
@@ -402,8 +402,8 @@ class WOTReasoner:
         # Initialize language encoder
         self.encoder = LanguageEncoder().to(self.device)
         
-        # Initialize Web of Thoughts model
-        self.wot_model = WebOfThoughts(
+        # Initialize Weight of Thoughts model
+        self.wot_model = WeightOfThoughts(
             input_dim=self.encoder.output_dim,
             hidden_dim=hidden_dim,
             num_nodes=num_nodes,
@@ -828,7 +828,7 @@ class WOTReasoner:
             nx.draw_networkx_edges(G, pos, width=edge_weights, alpha=0.5, edge_color='gray', 
                                   connectionstyle='arc3,rad=0.1', arrowsize=15, ax=ax6)
             
-            ax6.set_title('Web of Thoughts Reasoning Network')
+            ax6.set_title('Weight of Thoughts Reasoning Network')
             ax6.axis('off')
         
         plt.tight_layout()
