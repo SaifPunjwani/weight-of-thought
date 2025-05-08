@@ -1,0 +1,4 @@
+Task Type,Question,True Answer,Predicted Answer,Correct,Inference Time (s)
+syllogism,"If all Mazzies are Razzies and all Razzies are Kazzies, are all Mazzies definitely Kazzies? Answer with Yes or No.",Yes,No,False,0.049230098724365234
+combinatorics,"In a room of 12 people, everyone shakes hands with everyone else exactly once. How many handshakes are there in total?",66,0,False,0.04534125328063965
+geometry,Can a trapezoid have all sides equal? Answer with Yes or No.,No,Yes,False,0.05857419967651367

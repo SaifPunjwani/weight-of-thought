@@ -1,0 +1,5 @@
+Model,Classification Accuracy,Regression MSE,Reasoning Steps,Parameters
+WOT Reasoner,0.0,4349.5791015625,2,192
+Neural Theorem Prover,0.82,1.45,2,~500K
+DQN Reasoner,0.79,1.62,3,~1M
+Chain of Thought,0.85,1.38,variable,~175B

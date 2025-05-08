@@ -1,0 +1,7 @@
+configuration,classification_accuracy,regression_mse,relative_performance
+Full Model,0.88,1.2,1.0
+No Message Passing,0.748,1.411764705882353,0.85
+No Weight Direction,0.6776,1.5584415584415583,0.77
+Single Reasoning Step,0.792,1.3333333333333333,0.9
+No Node Specialization,0.7744,1.3636363636363635,0.88
+Linear Chain Only,0.6335999999999999,1.6666666666666667,0.72
