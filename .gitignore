@@ -52,3 +52,6 @@ Thumbs.db
 
 # Archives
 archive/
+
+# Exclude REALM folder but include copied images
+REALM Paper (arXiv)/

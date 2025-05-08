@@ -6,7 +6,7 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2504.10646-b31b1b.svg)](https://arxiv.org/abs/2504.10646)
 
 <p align="center">
-  <img src="results/paper_figures/wot_concept_overview.png" alt="Weight-of-Thought Concept" width="700"/>
+  <img src="results/paper_figures/reasoning_pipeline.png" alt="Weight-of-Thought Reasoning Pipeline" width="700"/>
 </p>
 
 Weight-of-Thought (WoT) is a novel neural reasoning approach that extends beyond traditional Chain-of-Thought (CoT) by representing reasoning as an interconnected web rather than a linear sequence. This repository implements the WoT architecture as described in our [paper](https://arxiv.org/abs/2504.10646), with complete code for training, evaluation, and visualization.
@@ -19,6 +19,10 @@ Weight-of-Thought (WoT) is a novel neural reasoning approach that extends beyond
 - **Task-specific reasoning**: The network adapts its reasoning strategy based on the task type
 - **Interpretable attention mechanisms**: Visualize the reasoning process through attention maps and node activations
 - **Comprehensive visualizations**: Understand model behavior through detailed visualizations
+
+<p align="center">
+  <img src="results/paper_figures/cotvswot.png" alt="CoT vs WoT Comparison" width="700"/>
+</p>
 
 ## 📊 Performance
 
@@ -33,7 +37,7 @@ WoT demonstrates strong performance across various reasoning tasks:
 | Geometry | 87% | +2% |
 
 <p align="center">
-  <img src="results/plots/model_comparison.png" alt="Model Comparison" width="600"/>
+  <img src="results/paper_figures/modecompare.png" alt="Model Comparison" width="600"/>
 </p>
 
 ## 🚀 Quick Start
@@ -87,7 +91,15 @@ The WoT architecture consists of:
 5. **Task-Specific Output Heads**: Specialized outputs for different reasoning tasks
 
 <p align="center">
-  <img src="results/paper_figures/detailed_reasoning.png" alt="Detailed Reasoning Process" width="700"/>
+  <img src="results/paper_figures/reasoningpath.png" alt="Detailed Reasoning Process" width="700"/>
+</p>
+
+### Low-Level Implementation
+
+The detailed implementation includes specialized message passing and weight space transformations:
+
+<p align="center">
+  <img src="results/paper_figures/lowlevelreasoningpipe.png" alt="Low-Level Reasoning Pipeline" width="700"/>
 </p>
 
 ### Supported Reasoning Tasks
@@ -103,14 +115,18 @@ The WoT architecture consists of:
 WoT provides comprehensive visualizations to understand the reasoning process:
 
 <p align="center">
-  <img src="results/paper_figures/attention_visualization.png" alt="Attention Visualization" width="350"/>
-  <img src="results/paper_figures/node_similarity_evolution.png" alt="Node Similarity Evolution" width="350"/>
+  <img src="results/paper_figures/weightspace.png" alt="Weight Space Analysis" width="700"/>
 </p>
 
-- **Edge Attention Matrix**: Reveals connections between reasoning nodes
-- **Node Activation Heatmap**: Shows node specialization patterns
-- **3D Node Specialization**: Visualizes node embeddings in 3D space
-- **Weight Matrix Visualization**: Displays learned parameter patterns
+<p align="center">
+  <img src="results/paper_figures/similar.png" alt="Node Similarity Evolution" width="700"/>
+</p>
+
+The weight space analysis reveals how different reasoning patterns emerge during training:
+
+<p align="center">
+  <img src="results/paper_figures/trainingconv.png" alt="Training Convergence" width="600"/>
+</p>
 
 ## 📒 Examples and Tutorials
 
@@ -150,6 +166,12 @@ dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
 reasoner = WOTReasoner(num_nodes=8, num_reasoning_steps=4)
 reasoner.train(dataloader, dataloader, num_epochs=10)
 ```
+
+### Training Performance
+
+<p align="center">
+  <img src="results/paper_figures/losstraing.png" alt="Loss and Training" width="600"/>
+</p>
 
 ### Extending the Model
 

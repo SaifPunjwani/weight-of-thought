@@ -76,7 +76,7 @@ class TestLanguageEncoder(unittest.TestCase):
         self.assertEqual(output.shape, (len(self.sample_text), bert_encoder.output_dim))
 
 
-class TestWebOfThoughts(unittest.TestCase):
+class TestWeightOfThoughts(unittest.TestCase):
     """Test the WebOfThoughts model implementation."""
     
     def setUp(self):
